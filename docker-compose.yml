@@ -1,0 +1,116 @@
+services:
+  db-backend:
+    image: postgres:latest
+    container_name: dat-db-backend
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+      - ./db-scripts:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: dat_backend
+    networks:
+     - dat-network
+    healthcheck:
+      test: "exit 0"
+  message-queue:
+    image: rabbitmq:3.10.5
+    container_name: dat-message-queue
+    environment:
+      RABBITMQ_DEFAULT_USER: mq_user
+      RABBITMQ_DEFAULT_PASS: mq_pass
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - dat-network
+    healthcheck:
+      test: "exit 0"
+  api:
+    image: datlabs/dat-api:latest
+    container_name: dat-api
+    depends_on:
+      db-backend:
+        condition: service_healthy
+    ports:
+      - 8000:8000
+    environment:
+      - MINIO_BUCKET_NAME=dat
+      - MINIO_ENDPOINT=object-storage:9000
+      - MINIO_ROOT_USER=los_user
+      - MINIO_ROOT_PASSWORD=los_pass
+    networks:
+     - dat-network
+    healthcheck:
+      test: "exit 0"
+  orchestrator:
+    image: datlabs/dat-orchestrator:latest
+    container_name: dat-orchestrator
+    depends_on:
+      message-queue:
+        condition: service_healthy
+    environment:
+      - MINIO_BUCKET_NAME=dat
+      - MINIO_ENDPOINT=object-storage:9000
+      - MINIO_ROOT_USER=los_user
+      - MINIO_ROOT_PASSWORD=los_pass
+    networks:
+     - dat-network
+  telemetry:
+    image: datlabs/dat-telemetry:latest
+    container_name: dat-telemetry
+    depends_on:
+      message-queue:
+        condition: service_healthy
+    networks:
+     - dat-network
+  scheduler:
+    image: datlabs/dat-scheduler:latest
+    container_name: dat-scheduler
+    depends_on:
+      message-queue:
+        condition: service_healthy
+    networks:
+     - dat-network
+  ui:
+    image: datlabs/dat-ui:latest
+    container_name: dat-ui
+    depends_on:
+      api:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy
+    ports:
+      - 3000:3000
+    networks:
+     - dat-network
+    healthcheck:
+      test: "exit 0"
+  object-storage:
+    container_name: dat-object-storage
+    image: minio/minio:latest
+    volumes:
+      - ./object-storage-data:/data
+    environment:
+      MINIO_ROOT_USER: "los_user"
+      MINIO_ROOT_PASSWORD: "los_pass"
+    ports:
+      - 9000:9000
+      - 9001:9001
+    command: server --address ":9000" --console-address ":9001" /data
+    networks:
+     - dat-network
+    healthcheck:
+      test: "exit 0"
+  ready:
+    image: busybox
+    container_name: dat-ready
+    command: wget -qO - https://raw.githubusercontent.com/dat-labs/dat-main/main/txt/dat-build-complete.txt | cat
+    depends_on:
+      ui:
+        condition: service_healthy
+    networks:
+     - dat-network
+networks:
+  dat-network:
+    name: dat-network
+    driver: bridge

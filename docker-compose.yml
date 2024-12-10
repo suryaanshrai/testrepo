@@ -43,7 +43,7 @@ services:
     healthcheck:
       test: "exit 0"
   orchestrator:
-    image: datlabs/dat-orchestrator:latest
+    image: suryaanshrai515/dat-orchestrator:latest
     container_name: dat-orchestrator
     depends_on:
       message-queue:
@@ -56,7 +56,7 @@ services:
     networks:
      - dat-network
   telemetry:
-    image: datlabs/dat-telemetry:latest
+    image: suryaanshrai515/dat-telemetry:latest
     container_name: dat-telemetry
     depends_on:
       message-queue:
@@ -64,7 +64,7 @@ services:
     networks:
      - dat-network
   scheduler:
-    image: datlabs/dat-scheduler:latest
+    image: suryaanshrai515/dat-scheduler:latest
     container_name: dat-scheduler
     depends_on:
       message-queue:
